@@ -1,0 +1,4 @@
+{
+  "wildcards_dir": "wildcards",
+  "_note": "Relative paths use the ComfyUI folder as their base. Absolute paths are also supported."
+}
