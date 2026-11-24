@@ -45,7 +45,7 @@ class ExclusiveOutputSwitch(io.ComfyNode):
                 io.Boolean.Input(
                     "switch",
                     default=False,
-                    tooltip="False: on_false만 실행, True: on_true만 실행. 이 위젯에서 직접 선택하세요.",
+                    tooltip="False: on_false만 실행, True: on_true만 실행. 직접 선택하거나 고정 Boolean 노드를 연결할 수 있습니다.",
                 ),
                 io.MatchType.Input("on_false", template=template, lazy=True, optional=True),
                 io.MatchType.Input("on_true", template=template, lazy=True, optional=True),

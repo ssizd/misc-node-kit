@@ -50,10 +50,18 @@ assert "50" in prompt
 assert "70" in prompt
 
 prompt = make_prompt(False)
+prompt["80"] = {"class_type": "PrimitiveBoolean", "inputs": {"value": False}}
 prompt["40"]["inputs"]["switch"] = ["80", 0]
-before = {node_id: dict(entry) for node_id, entry in prompt.items()}
 module.prune_prompt(prompt, is_output)
-assert set(prompt) == set(before)
+assert "on_true" not in prompt["40"]["inputs"]
+assert "30" not in prompt
+
+prompt = make_prompt(False)
+prompt["80"] = {"class_type": "ComputedBoolean", "inputs": {"a": ["81", 0]}}
+prompt["40"]["inputs"]["switch"] = ["80", 0]
+before = set(prompt)
+module.prune_prompt(prompt, is_output)
+assert set(prompt) == before
 assert "on_true" in prompt["40"]["inputs"]
 
 print("Exclusive output switch prompt pruning tests passed.")

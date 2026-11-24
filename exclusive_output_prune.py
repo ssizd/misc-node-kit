@@ -24,6 +24,18 @@ def ancestors(prompt, start_id):
     return seen
 
 
+def static_boolean(prompt, value):
+    if type(value) is bool:
+        return value
+    if not is_link(value) or value[1] != 0:
+        return None
+    source = prompt.get(str(value[0]))
+    if source is None:
+        return None
+    literal = source.get("inputs", {}).get("value")
+    return literal if type(literal) is bool else None
+
+
 def prune_prompt(prompt, is_output_node, class_type="WildcardExclusiveOutputSwitch"):
     """Detach inactive inputs and remove output roots that would re-run them."""
     gate_ids = [
@@ -36,8 +48,8 @@ def prune_prompt(prompt, is_output_node, class_type="WildcardExclusiveOutputSwit
         if gate is None:
             continue
         inputs = gate.get("inputs", {})
-        switch = inputs.get("switch")
-        if type(switch) is not bool:
+        switch = static_boolean(prompt, inputs.get("switch"))
+        if switch is None:
             continue
 
         active_name = "on_true" if switch else "on_false"
