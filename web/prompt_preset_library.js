@@ -164,6 +164,7 @@ function installStyles() {
         .ppl-drag-handle{color:#999;font-family:monospace}
         .ppl-prompt{width:100%;min-height:220px;flex:1;padding:8px;resize:none;line-height:1.4}
         .ppl-pair-row{display:flex;align-items:center;gap:7px;height:24px}
+        .ppl-root .ppl-lora-reload{margin-left:auto;width:26px;height:24px;padding:0}
         .ppl-lora-controls{display:flex;flex-direction:column;gap:5px;flex:none;min-width:0}
         .ppl-lora-controls select{width:100%;min-width:0;height:80px}
         .ppl-lora-weights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
@@ -230,18 +231,26 @@ function install(node) {
     const selected = () => state.presets.find(item => item.id === state.selected_id) || state.presets[0];
     let loraNames = [];
     let loraRequest;
-    const loadLoras = () => {
-        if (loraRequest) return;
-        loraRequest = api.fetchApi("/object_info/LoraLoaderModelOnly")
+    let lorasLoaded = false;
+    let refreshChoices = [];
+    const loadLoras = (reload = false) => {
+        if (loraRequest) return loraRequest;
+        if (lorasLoaded && !reload) return;
+        loraRequest = api.fetchApi("/models/loras", { cache: "no-store" })
             .then(response => {
                 if (!response.ok) throw new Error("Could not load LoRA list");
                 return response.json();
             })
-            .then(info => {
-                loraNames = info.LoraLoaderModelOnly?.input?.required?.lora_name?.[0] || [];
-                if (selected().lora_enabled) render();
+            .then(names => {
+                if (!Array.isArray(names)) throw new Error("Invalid LoRA list");
+                loraNames = names.filter(name => typeof name === "string");
+                lorasLoaded = true;
+                refreshChoices.forEach(fill => fill());
+                if (reload) setStatus(`LoRA list refreshed (${loraNames.length}).`);
             })
-            .catch(error => { loraRequest = null; setStatus(error.message, true); });
+            .catch(error => setStatus(error.message, true))
+            .finally(() => { loraRequest = null; });
+        return loraRequest;
     };
     const sync = () => {
         touch();
@@ -262,6 +271,7 @@ function install(node) {
 
     const render = () => {
         root.replaceChildren();
+        refreshChoices = [];
         const current = selected();
 
         const listLabel = document.createElement("div");
@@ -417,6 +427,11 @@ function install(node) {
             sync(); render();
         };
         loraRow.append(loraEnabled, loraLabel);
+        if (current.lora_enabled) {
+            const reload = button("\u21bb", "Reload LoRA list", () => loadLoras(true));
+            reload.className = "ppl-lora-reload";
+            loraRow.append(reload);
+        }
         root.append(loraRow);
         if (current.lora_enabled) {
             if (!Array.isArray(current.loras)) {
@@ -456,6 +471,7 @@ function install(node) {
                 chooser.value = lora.lora_name || "";
             };
             search.oninput = fillChoices;
+            refreshChoices.push(fillChoices);
             fillChoices();
             const weights = document.createElement("div");
             weights.className = "ppl-lora-weights";

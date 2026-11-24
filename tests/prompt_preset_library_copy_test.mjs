@@ -48,9 +48,16 @@ const app = {
     },
 };
 
+let catalog = ["example.safetensors"];
+let catalogRequests = 0;
 const context = vm.createContext({
     app,
-    api: { fetchApi: async () => ({ ok: true, json: async () => ({ LoraLoaderModelOnly: { input: { required: { lora_name: [["example.safetensors"]] } } } }) }) },
+    api: { fetchApi: async (path, options) => {
+        assert.equal(path, "/models/loras");
+        assert.equal(options.cache, "no-store");
+        catalogRequests++;
+        return { ok: true, json: async () => [...catalog] };
+    } },
     console,
     Date,
     JSON,
@@ -196,6 +203,19 @@ assert.equal(chooser.children.length, 0);
 search.value = "EXAMPLE";
 search.oninput();
 assert.ok(chooser.children.some(option => option.value === "example.safetensors"));
+await new Promise(setImmediate);
+search.value = "new-folder";
+search.oninput();
+assert.equal(chooser.children.length, 0);
+catalog = ["example.safetensors", "new-folder/new.safetensors"];
+const requestsBeforeReload = catalogRequests;
+const beforeReload = reloaded.serialize().widgets_values[0];
+elements(reloaded.ui).find(element => element.title === "Reload LoRA list").onclick({ stopPropagation() {} });
+await new Promise(setImmediate);
+assert.equal(catalogRequests, requestsBeforeReload + 1);
+assert.equal(search.value, "new-folder");
+assert.deepEqual(chooser.children.map(option => option.value), ["new-folder/new.safetensors"]);
+assert.equal(reloaded.serialize().widgets_values[0], beforeReload);
 const increase = elements(reloaded.ui).find(element => element.title === "Increase Video");
 increase.onclick({ stopPropagation() {} });
 assert.equal(JSON.parse(reloaded.serialize().widgets_values[0]).presets[1].loras[0].lora_video, 0.8);
