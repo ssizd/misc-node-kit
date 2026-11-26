@@ -1,4 +1,6 @@
 import importlib.util
+import ast
+import types
 from pathlib import Path
 
 
@@ -64,4 +66,29 @@ module.prune_prompt(prompt, is_output)
 assert set(prompt) == before
 assert "on_true" in prompt["40"]["inputs"]
 
+def test_linked_boolean_validation():
+    source = Path(__file__).resolve().parents[1] / "nodes_exclusive_output_switch.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "ExclusiveOutputSwitch")
+    missing = object()
+    namespace = {"MISSING": missing, "NODE_ID": "WildcardExclusiveOutputSwitch",
+                 "io": types.SimpleNamespace(ComfyNode=object, NodeOutput=lambda value: (value,))}
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(source), "exec"), namespace)
+    switch = namespace["ExclusiveOutputSwitch"]
+    # Connected inputs are None until evaluated. The pruner may already have
+    # removed the opposite input based on the Boolean source's literal value.
+    assert switch.validate_inputs(None, on_true=None) is True
+    assert switch.validate_inputs(None, on_false=None) is True
+    assert switch.validate_inputs(True, on_true=None) is True
+    assert switch.validate_inputs(False, on_false=None) is True
+    assert switch.validate_inputs(True) is not True
+    assert switch.validate_inputs(False) is not True
+    assert switch.check_lazy_status(True, on_true=None) == ["on_true"]
+    assert switch.check_lazy_status(False, on_false=None) == ["on_false"]
+    value = object()
+    assert switch.execute(True, on_true=value) == (value,)
+    assert switch.execute(False, on_false=value) == (value,)
+
+
+test_linked_boolean_validation()
 print("Exclusive output switch prompt pruning tests passed.")

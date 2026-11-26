@@ -62,6 +62,10 @@ class ExclusiveOutputSwitch(io.ComfyNode):
 
     @classmethod
     def validate_inputs(cls, switch, on_false=MISSING, on_true=MISSING):
+        # Linked Boolean values are unresolved (None) during prompt validation.
+        # Do not mistake that for False after pruning detached the false input.
+        if type(switch) is not bool:
+            return True
         selected = on_true if switch else on_false
         if selected is MISSING:
             return "선택한 분기가 연결되지 않았습니다."
